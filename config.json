@@ -1,0 +1,9 @@
+{
+    "ignore_keywords": ["LLC", "LP", "Inc", "Trust", "LTD", "Estate", "Corp"],
+    "site1": "https://myeclerk.myorangeclerk.com/Cases/Search",
+    "datafile":"data.csv",
+    "date_from":"01/01/2025",
+    "date_to":"01/15/2025",
+    "site2":"https://ocpaweb.ocpafl.org/parcelsearch"
+  }
+  
