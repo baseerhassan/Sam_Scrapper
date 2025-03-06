@@ -27,11 +27,14 @@ from concurrent.futures import ThreadPoolExecutor
 import socket
 
 # Custom modules (ensure these are imported correctly)
+import extract_addresses
+from extract_value import extract_value
 from masterFileSave import TableData as TD
 from defendent import extract_defendant_names,should_ignore_url
 from pdf import extract_pdf_descriptions, download_pdf, extract_text_from_pdf, extract_claim_value,find_addresses
 # from second_script import open_second_site
 import urllib3
+import extract_value
 
 # Configure longer timeouts for DNS resolution
 socket.setdefaulttimeout(30)  # 30 seconds timeout
@@ -466,8 +469,8 @@ def extract_pdf_data(pdf_path):
     else:
         print(f"Searching address in the summons PDF: {pdf_path}...")
         text = extract_text_from_pdf(pdf_path).upper()  # Your existing function to extract text
-        # print(f'text {text}')
-        addresses = find_addresses(text)  # Your existing function to find addresses
+        
+        addresses = 'NA'   # find_addresses(text)  # My existing function to find addresses
         print(f"Addresses found: {addresses}")
         return {"Addresses": addresses}
     
@@ -475,9 +478,10 @@ def extract_pdf_data(pdf_path):
 def process_pdfs_in_csv(csv_file):
     # Step 1: Read the CSV data into rows
     rows = read_csv(csv_file)
-
+    
     # Step 2: Process each row
     for row in rows:
+        
         # Step 3: Get the list of PDF files from the row (from the last column)
         # pdf_list = eval(row.get(None)[0]) if row.get(None) else []
         pdf_list = eval(row.get(None)[0])  # This assumes the list of PDFs is in the second column
@@ -492,16 +496,16 @@ def process_pdfs_in_csv(csv_file):
 
         # Step 4: Process the PDFs in this row and update the row with extracted data
         for pdf_path in pdf_list:
-            print(f'pdf_path : {pdf_path}')
-            # Step 5: Extract data from each PDF based on the description
-            updated_data = extract_pdf_data(pdf_path)
-            print(f'updated_data : {updated_data}')
+            if "value" in pdf_path: 
+                print(f'pdf_path : {pdf_path}')
+                # Step 5: Extract data from each PDF based on the description
+                updated_data = extract_pdf_data(pdf_path)
+                print(f'updated_data : {updated_data}')
             
-            # Add the processed data to the row
-            # row['new_data'] = updated_data
-
-            row.update(updated_data)  # Add the extracted data (like addresses or claim value)
-            
+                # Add the processed data to the row
+                # row['new_data'] = updated_data
+                row.update(updated_data)  # Add the extracted data (like addresses or claim value)
+                
         if processed_count < 2:  
             row.setdefault("Claim Value", "Not Found")
         
@@ -552,8 +556,19 @@ def folderCreation():
 if __name__ == "__main__":
     try:
         print('if')
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        folder_path = os.path.join(script_dir, 'downloads')
+
         folderCreation()
         main()
-        process_pdfs_in_csv('data.csv')
+        process_pdfs_in_csv('data.csv') # extract Calim Values
+        extract_addresses.process_pdfs(folder_path) # extract addres Values
+
+
+        # Added by Trae for the Claim Value. Not Working 100%
+        #extract_value.process_pdfs(script_dir)
+        #extract_value.process_not_found_pdfs(script_dir)
+        #extract_value.merge_values_to_data(script_dir)
+
     except Exception as e:
         logging.error(f"Main script error: {e}")

@@ -7,67 +7,6 @@ import re
 import pytesseract
 from pdf2image import convert_from_path
 
-# def extract_pdf_descriptions(table_xpath, driver):
-#     """
-#     Extracts descriptions of PDF links from a table on the new page, skipping the header row,
-#     and only adds descriptions containing the specific keywords.
-
-#     Args:
-#         driver: Selenium WebDriver instance.
-#         table_xpath: XPATH of the table containing PDF links.
-
-#     Returns:
-#         List of filtered PDF descriptions and corresponding links.
-#     """
-
-#     # Ensure the page has fully loaded
-#     time.sleep(3)  # Adjust sleep if needed to wait for the page to load completely
-
-#     # Locate the table
-#     try:
-#         table = driver.find_element(By.XPATH, table_xpath)
-#     except Exception as e:
-#         print(f"Error: Could not find table. {e}")
-#         return []
-
-#     # Find all rows in the table
-#     rows = table.find_elements(By.TAG_NAME, "tr")
-
-#     # List to store PDF descriptions and their corresponding links
-#     pdf_details = []
-
-#     # Keywords to filter descriptions
-#     required_keywords = ["Summon", "Value of Real Property"]
-#     last_summon = None  # Store the last occurrence of "Summon"
-#     value_property_found = False  # Track if "Value of Real Property" is found
-
-#     # Start from row 1 (skip the header row)
-#     for row in rows[1:]:  # Skip the first row (header row)
-#         cells = row.find_elements(By.TAG_NAME, "td")  # Find all columns in the row
-#         if len(cells) >= 2:  # Ensure at least two columns exist
-#             try:
-#                 link_element = cells[1].find_element(By.TAG_NAME, "a")  # The link is in the second column
-#             except Exception as e:
-#                 print(f"No <a> element found in row: {row}")
-#                 continue
-
-#             pdf_description = link_element.text.strip()  # Extract the description (text of the link)
-#             pdf_url = link_element.get_attribute("href")  # Extract the href (PDF URL)
-
-#             # Check if the description contains a required keyword (case-insensitive)
-#             if "summon" in pdf_description.lower():
-#                 last_summon = {"description": pdf_description, "url": pdf_url}  # Keep replacing to get the last one
-
-#             if "value of real property" in pdf_description.lower() and not value_property_found:
-#                 pdf_details.append({"description": pdf_description, "url": pdf_url})
-#                 value_property_found = True  # Mark it as found
-
-#     # After processing all rows, add the last "Summon" if found
-#     if last_summon:
-#         pdf_details.append(last_summon)
-
-#     print(f"Filtered PDF Descriptions and URLs: {pdf_details}")
-#     return pdf_details
 
 def extract_pdf_descriptions(table_xpath, driver):
     """
@@ -129,67 +68,6 @@ def extract_pdf_descriptions(table_xpath, driver):
 
     print(f"Filtered PDF Descriptions and URLs: {pdf_details}")
     return pdf_details
-# def extract_pdf_descriptions(table_xpath, driver):
-#     """
-#     Extracts descriptions of PDF links from a table on the new page, skipping the header row,
-#     and only adds descriptions containing the specific keywords.
-
-#     Args:
-#         driver: Selenium WebDriver instance.
-#         table_xpath: XPATH of the table containing PDF links.
-
-#     Returns:
-#         List of filtered PDF descriptions and corresponding links.
-#     """
-
-#     # Ensure the page has fully loaded
-#     time.sleep(3)  # Adjust sleep if needed to wait for the page to load completely
-
-#     # Locate the table
-#     try:
-#         table = driver.find_element(By.XPATH, table_xpath)
-#     except Exception as e:
-#         print(f"Error: Could not find table. {e}")
-#         return []
-
-#     # Find all rows in the table
-#     rows = table.find_elements(By.TAG_NAME, "tr")
-
-#     # List to store PDF descriptions and their corresponding links
-#     pdf_details = []
-
-#     # Keywords to filter descriptions
-#     required_keywords = ["Summon", "Value of Real Property"]
-#     found_keywords = set()  # To track which keywords have been found
-
-#     # Start from row 1 (skip the header row)
-#     for row in rows[1:]:  # Skip the first row (header row)
-#         cells = row.find_elements(By.TAG_NAME, "td")  # Find all columns in the row
-#         if len(cells) >= 2:  # Ensure at least two columns exist
-#             try:
-#                 link_element = cells[1].find_element(By.TAG_NAME, "a")  # The link is in the second column
-#             except Exception as e:
-#                 # If no <a> element is found, just pass or handle it accordingly
-#                 print(f"No <a> element found in row: {row}")
-#                 continue
-
-#             pdf_description = link_element.text.strip()  # Extract the description (text of the link)
-#             pdf_url = link_element.get_attribute("href")  # Extract the href (PDF URL)
-
-#             # Check if any required keyword is in the description (case-insensitive)
-#             for keyword in required_keywords:
-#                 if keyword.lower() in pdf_description.lower() and keyword not in found_keywords:
-#                     pdf_details.append({"description": pdf_description, "url": pdf_url})
-#                     found_keywords.add(keyword)  # Mark keyword as found
-
-#                     # If all required keywords are found, stop searching
-#                     if len(found_keywords) == len(required_keywords):
-#                         print("All required keywords found, stopping search.")
-#                         return pdf_details
-
-#     print(f"Filtered PDF Descriptions and URLs: {pdf_details}")
-#     return pdf_details
-
 
 
 
@@ -259,23 +137,8 @@ def extract_text_from_pdf(pdf_path):
     
     return extracted_text
 
-# def extract_text_from_pdf(pdf_path):
-#     # Convert only the first page of the PDF to an image
-#     images = convert_from_path(pdf_path, first_page=1, last_page=1)
-#     print('images ......')
-    
-#     extracted_text = ""
-#     for img in images:
-#         # Perform OCR on the first page image and append the text
-#         extracted_text += pytesseract.image_to_string(img) + "\n"
-    
-#     return extracted_text
-    
 
 import pyap
-
-import re
-
 
 import re
 
@@ -307,21 +170,7 @@ def extract_claim_value(text):
     """
     import re
 
-    # List of patterns to test
-    #patterns = [
-    #    r"[S\$]?_?(\d[\d,]*)%?\s+TOTALESTIMATED VALUE OF CLAIM",  # Handles 'S_30409%', '$30409'
-    #    r"([A-Za-z]?\d+)\s+TOTAL\s+ESTIMATED\s+VALUE\s+OF\s+CLAIM",  # Handles 'S30409 TOTAL...'
-    #    r"[S\$]?_?(\d[\d,]*)\s+TOTAL\s+ESTIMATED\s+VALUE\s+OF\s+CLAIM"  # Handles '$30409 TOTAL...'
-    #]
-
-    #patterns = [
-    #        r"[S\$]?\s?(\d[\d,]*\.?\d*)\s+TOTAL\s+ESTIMATED\s+VALUE\s+OF\s+CLAIM",
-    #        r"([A-Za-z]?\d[\d,]*\.?\d*)\s+TOTAL\s+ESTIMATED\s+VALUE\s+OF\s+CLAIM",
-    #        r"TOTAL\s+ESTIMATED\s+VALUE\s+OF\s+CLAIM\s*[-:]?\s*\$\s?([\d,]+(?:\.\d{1,2})?)"
-    #]
-    #patterns = [
-    #    r"\$[\s]?(?P<amount>[\d,]+(?:\.\d{1,2})?)\s*(?:TOTAL\s+ESTIMATED\s+VALUE\s+OF\s+CLAIM|TOTAL\s+ESTIMATED\s+VALUE)|TOTAL\s+ESTIMATED\s+VALUE\s+OF\s+CLAIM\s+.*?\s+\$[\s]?(?P<amount2>[\d,]+(?:\.\d{1,2})?)"
-    #]
+    
 # Preprocessing: Remove underscores and spaces within numbers
     #cleaned_text = re.sub(r'(?<=\d)[_\s](?=\d)', '', text)
     cleaned_text = re.sub(r'(?<=\d)[_\s](?=\d)', '', text)  # Fix broken numbers

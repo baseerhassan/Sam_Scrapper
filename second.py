@@ -123,7 +123,7 @@ def process_csv_and_open_sites(driver, csv_file_path):
 
     for index, row in enumerate(rows):
         case_number = row["Case Number"]
-        address_cell = row["Addresses"]
+        address_cell = row["defendant_address"]
 
         if not address_cell:
             print(f"Skipping row {index + 1}: Missing address")
