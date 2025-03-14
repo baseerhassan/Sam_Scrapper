@@ -466,13 +466,13 @@ def extract_pdf_data(pdf_path):
             return {"Claim Value": "Not Found"}
         
     
-    else:
-        print(f"Searching address in the summons PDF: {pdf_path}...")
-        text = extract_text_from_pdf(pdf_path).upper()  # Your existing function to extract text
+    #else:
+        #print(f"Searching address in the summons PDF: {pdf_path}...")
+        #text = extract_text_from_pdf(pdf_path).upper()  # Your existing function to extract text
         
-        addresses = 'NA'   # find_addresses(text)  # My existing function to find addresses
-        print(f"Addresses found: {addresses}")
-        return {"Addresses": addresses}
+        #addresses = 'NA'   # find_addresses(text)  # My existing function to find addresses
+        #print(f"Addresses found: {addresses}")
+        #return {"Addresses": addresses}
     
         
 def process_pdfs_in_csv(csv_file):
@@ -491,7 +491,7 @@ def process_pdfs_in_csv(csv_file):
         if not pdf_list:
             print('yakki')
             row.setdefault("Claim Value", "No pdf")
-            row.setdefault("Addresses", "")
+            #row.setdefault("Addresses", "")
             continue
 
         # Step 4: Process the PDFs in this row and update the row with extracted data
