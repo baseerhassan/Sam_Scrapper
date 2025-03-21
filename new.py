@@ -91,7 +91,7 @@ def setup_driver_with_proxies(proxy=None):
         options.add_argument(f'--proxy-server={proxy}')
 
     # driver = CustomChrome(options=options)
-    driver = CustomChrome(version_main=132, options=options)
+    driver = CustomChrome(version_main=134, options=options)
     # driver = CustomChrome(options=options)
     return driver
 

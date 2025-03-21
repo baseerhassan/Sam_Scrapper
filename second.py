@@ -130,9 +130,8 @@ def process_csv_and_open_sites(driver, csv_file_path):
             row["Result"] = "Missing address"
             continue
 
-        # Extract the first address
-        address = address_cell.strip("[]").replace("'", "").replace('"', '').strip()
-        first_address = address.split(",")[0].strip()
+        # Split the address at the first comma and take the first part
+        first_address = address_cell.split(",")[0].strip()
 
         print(f"Processing Case {case_number}, Address: {first_address}")
         time.sleep(3)
@@ -150,7 +149,7 @@ def process_csv_and_open_sites(driver, csv_file_path):
             # options.add_argument("--headless")
             options.add_argument(f'--user-agent={user_agent}')
             options.add_argument("--disable-popup-blocking")
-            driver = uc.Chrome(version_main=132, options=options)
+            driver = uc.Chrome(version_main=134, options=options)
 
             row["Result"] = "No results found"
             continue
@@ -560,7 +559,7 @@ def setup_driver_with_proxies(proxy=None):
         options.add_argument(f'--proxy-server={proxy}')
     
     # Use undetected_chromedriver to automatically manage the ChromeDriver path
-    driver = uc.Chrome(version_main=132,options=options)  # This will use the correct version of ChromeDriver automatically
+    driver = uc.Chrome(version_main=134,options=options)  # This will use the correct version of ChromeDriver automatically
     
     # Mask WebDriver fingerprints
     driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
