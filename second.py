@@ -123,7 +123,8 @@ def process_csv_and_open_sites(driver, csv_file_path):
 
     for index, row in enumerate(rows):
         case_number = row["Case Number"]
-        address_cell = row["defendant_address"]
+        #address_cell = row["defendant_address"]
+        address_cell = row["Street"]
 
         if not address_cell:
             print(f"Skipping row {index + 1}: Missing address")
@@ -131,13 +132,14 @@ def process_csv_and_open_sites(driver, csv_file_path):
             continue
 
         # Split the address at the first comma and take the first part
-        first_address = address_cell.split(",")[0].strip()
-
+        #first_address = address_cell.split(",")[0].strip()
+        first_address = address_cell
         print(f"Processing Case {case_number}, Address: {first_address}")
         time.sleep(3)
 
         # Open the second site in a new tab
         driver = enter_property_address_in_new_tab(driver, first_address)
+        time.sleep(3)
         if driver is None:
             print(f"No results found for {first_address}. Reinitializing driver...")
             

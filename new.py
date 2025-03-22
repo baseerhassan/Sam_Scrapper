@@ -35,7 +35,8 @@ from pdf import extract_pdf_descriptions, download_pdf, extract_text_from_pdf, e
 # from second_script import open_second_site
 import urllib3
 import extract_value
-
+import claude_address_cleaner
+import address_split
 # Configure longer timeouts for DNS resolution
 socket.setdefaulttimeout(30)  # 30 seconds timeout
 
@@ -555,15 +556,20 @@ def folderCreation():
 
 if __name__ == "__main__":
     try:
-        print('if')
+        print('Main Calling')
         script_dir = os.path.dirname(os.path.abspath(__file__))
         folder_path = os.path.join(script_dir, 'downloads')
 
         folderCreation()
         main()
         process_pdfs_in_csv('data.csv') # extract Calim Values
+        print('------------Address Extract:---------- ')
         extract_addresses.process_pdfs(folder_path) # extract addres Values
+        print('------------Address Cleaner:---------- ')
+        claude_address_cleaner.process_csv('data.csv')
 
+        print('------------Address Split:---------- ')
+        address_split.process_csv()
 
         # Added by Trae for the Claim Value. Not Working 100%
         #extract_value.process_pdfs(script_dir)
