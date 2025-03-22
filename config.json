@@ -1,11 +1,10 @@
 {
-    "ignore_keywords": ["Trust"],
+    "ignore_keywords": [
+        "Trust"
+    ],
     "site1": "https://myeclerk.myorangeclerk.com/Cases/Search",
-    "datafile":"data.csv",
-    "date_from":"10/01/2024",
-    "date_to":"10/28/2024",
-    "site2":"https://ocpaweb.ocpafl.org/parcelsearch"
-  }
-
-  
-  
+    "datafile": "data.csv",
+    "date_from": "10/01/2024",
+    "date_to": "10/01/2024",
+    "site2": "https://ocpaweb.ocpafl.org/parcelsearch"
+}
