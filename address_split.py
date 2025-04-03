@@ -228,6 +228,52 @@ def process_csv(input_file='data.csv', output_file='data.csv', address_column='C
         print(f"An error occurred: {str(e)}")
         return None
 
+
+def process_secondsite_csv(input_file='data.csv', output_file='data.csv', address_column='Extracted Address'):
+    """
+    Process a CSV file to parse addresses from a specified column
+    
+    Args:
+        input_file (str): Path to input CSV file
+        output_file (str): Path to output CSV file
+        address_column (str): Name of the column containing addresses
+        
+    Returns:
+        pandas.DataFrame: The processed DataFrame with parsed address columns
+    """
+    try:
+        # Read the CSV file
+        df = pd.read_csv(input_file)
+        
+        # Check if address column exists
+        if address_column not in df.columns:
+            raise ValueError(f"Error: '{address_column}' column not found in the CSV file.")
+        
+        # Apply the parser to each address
+        parsed_addresses = df[address_column].apply(parse_address)
+        
+        # Extract the components into new columns
+        df['Street2'] = parsed_addresses.apply(lambda x: x['Street'])
+        df['City2'] = parsed_addresses.apply(lambda x: x['City'])
+        df['State2'] = parsed_addresses.apply(lambda x: x['State'])
+        df['Zip2'] = parsed_addresses.apply(lambda x: x['Zip'])
+        
+        # Save the modified DataFrame back to CSV
+        if output_file:
+            df.to_csv(output_file, index=False)
+            print(f"Address parsing completed successfully. Results saved to '{output_file}'")
+        
+        return df
+        
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+        return None
+
+
+
+
+
+
 def main():
     """
     Main function to run when script is executed directly

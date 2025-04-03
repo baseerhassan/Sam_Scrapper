@@ -101,50 +101,21 @@ class ScriptLauncherUI:
     def reset_progress_bar(self):
         """Reset the progress bar to initial state"""
         self.progress_var.set(0)
-        self.time_label.config(text="Estimated time remaining: --:--")
+        self.time_label.config(text="Ready")
         if self.progress_update_id:
             self.root.after_cancel(self.progress_update_id)
             self.progress_update_id = None
     
     def update_progress(self):
-        """Update the progress bar and time remaining"""
+        """Update the progress bar and status"""
         if not self.process or self.process.poll() is not None:  # Process completed
             self.progress_var.set(100)
             self.time_label.config(text="Completed")
             return
         
-        elapsed_time = time.time() - self.start_time
-        
-        # For the first 10 seconds, we'll use a predetermined estimate
-        if elapsed_time < 10:
-            # Set progress to show activity but not much progress yet
-            progress = min(5, (elapsed_time / 10) * 5)
-            self.progress_var.set(progress)
-            
-            # For siteA.bat, estimate 3 minutes, for siteB.bat estimate 2 minutes
-            script_name = os.path.basename(self.current_script)
-            if script_name == "siteA.bat":
-                self.estimated_duration = 180  # 3 minutes in seconds
-            else:  # siteB.bat or any other script
-                self.estimated_duration = 120  # 2 minutes in seconds
-                
-            remaining = self.estimated_duration - elapsed_time
-        else:
-            # After 10 seconds, we'll use a more dynamic approach
-            # Assuming linear progress, calculate percentage complete based on elapsed time
-            progress = min(95, (elapsed_time / self.estimated_duration) * 100)
-            self.progress_var.set(progress)
-            
-            # Calculate remaining time
-            if progress > 0:
-                remaining = (self.estimated_duration * (100 - progress)) / 100
-            else:
-                remaining = self.estimated_duration
-        
-        # Format remaining time
-        minutes = int(remaining // 60)
-        seconds = int(remaining % 60)
-        self.time_label.config(text=f"Estimated time remaining: {minutes:02d}:{seconds:02d}")
+        # Show indeterminate progress while running
+        self.progress_var.set(50)  # Keep progress bar at 50% to indicate activity
+        self.time_label.config(text="Running...")
         
         # Schedule the next update
         self.progress_update_id = self.root.after(1000, self.update_progress)

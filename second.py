@@ -6,14 +6,26 @@ from selenium.webdriver.common.keys import Keys
 from new import simulate_human_mouse_movements
 import time
 import csv
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
+import random  # Add this import at the top
 
 from fake_useragent import UserAgent
 import undetected_chromedriver as uc
 
+#New imports for handling the chromedriver errors
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium import webdriver
+import address_split
+
+
 # Helper function to wait for element to be present or clickable
-def wait_for_element(driver, xpath, condition=EC.presence_of_element_located, timeout=10):
-    return WebDriverWait(driver, timeout).until(condition((By.XPATH, xpath)))
+def wait_for_element(driver, xpath, condition=EC.presence_of_element_located, timeout=15):
+    try:
+        return WebDriverWait(driver, timeout).until(condition((By.XPATH, xpath)))
+    except TimeoutException:  # Catch timeout error
+        print(f"Element not found: {xpath}")  # Debugging log
+        return None  # Return None instead of breaking execution
 
 def enter_property_address(driver, address):
     """
@@ -26,10 +38,10 @@ def enter_property_address(driver, address):
         input_field = wait_for_element(driver, '//*[@id="PropertyAddress"]', EC.visibility_of_element_located)
         input_field.clear()  # Clear any existing text
         input_field.send_keys(address)
-        time.sleep(4)
+        time.sleep(2)
         input_field.send_keys(Keys.RETURN)  # Optional: Press Enter
         print(f"Entered: {address}")
-        time.sleep(8)  # Wait for any page update (if required)
+        time.sleep(6)  # Wait for any page update (if required)
     except Exception as e:
         print(f"Error entering address: {e}")
 
@@ -40,9 +52,27 @@ def check_no_results(driver):
     If it exists, returns True (pass), otherwise False (continue execution).
     """
     try:
-        element = wait_for_element(driver, '//*[@id="ngb-nav-2-panel"]/search-results/div/h2', EC.presence_of_element_located, timeout=5)
+        element = wait_for_element(driver, '//*[@id="ngb-nav-2-panel"]/search-results/div/h2', EC.presence_of_element_located, timeout=10)
         if element.text.strip().upper() == "NO RESULTS FOUND":
             print("No results found. Skipping this address.")
+            return True
+    except Exception:
+        pass  # If element is not found, continue execution
+    
+    return False
+
+
+def check_multiple_results(driver):
+    """
+    Checks if multiple results are found in the search.
+    Returns True if multiple results are detected, False otherwise.
+    """
+    try:
+        # Look for elements that indicate multiple results
+        multiple_results_xpath = '//*[@id="ngb-nav-2-panel"]/search-results/div/div/div/div[1]/h4'
+        element = wait_for_element(driver, multiple_results_xpath, timeout=10)
+        if "Multiple Results" in element.text:
+            print("Multiple results found for this address.")
             return True
     except Exception:
         pass  # If element is not found, continue execution
@@ -59,41 +89,52 @@ def enter_property_address_in_new_tab(driver, address):
     """Open a new tab, enter the address, and return to the original tab."""
     # Open a new tab using JavaScript
     driver.execute_script("window.open('');")
-    time.sleep(2)  # Wait for the new tab to open
+    time.sleep(random.uniform(1.5, 3.5))  # Random delay
 
     # Switch to the new tab
-    driver.switch_to.window(driver.window_handles[-1])  # Switch to the most recently opened tab
+    driver.switch_to.window(driver.window_handles[-1])
     with open("config.json", "r") as file:
-     config = json.load(file)
+        config = json.load(file)
 
-    # Extract ignore_keywords
+    # Extract site URL
     site2 = config.get("site2", [])
     # Open the second site
     driver.get(site2)
-    # simulate_human_mouse_movements()
-    time.sleep(4)  # Wait for the page to load
+    time.sleep(random.uniform(2.0, 4.0))  # Random delay
 
-    # Enter the property address
+    # Enter the property address with human-like typing
     input_field = wait_for_element(driver, '//*[@id="PropertyAddress"]', EC.visibility_of_element_located)
-    input_field.clear()  # Clear any existing text
-    input_field.send_keys(address)
-    time.sleep(4)  # Wait before pressing Enter
-    input_field.send_keys(Keys.RETURN)  # Optional: Press Enter to submit the search
+    input_field.clear()
+    
+    # Type address with random delays between characters
+    for char in address:
+        input_field.send_keys(char)
+        time.sleep(random.uniform(0.05, 0.2))  # Random delay between keystrokes
+        
+    time.sleep(random.uniform(1.0, 2.0))  # Random delay before pressing Enter
+    input_field.send_keys(Keys.RETURN)
     print(f"Entered address in new tab: {address}")
 
-    time.sleep(7)  # Wait for any page update (if required)
+    time.sleep(random.uniform(3.0, 5.0))  # Random delay for page update
 
     # Handle potential popups or "No results found"
     try:
-        if check_no_results(driver):  # Check if "No results found" appears
+        if check_no_results(driver):
             print("No results found for this address.")
-            driver.close()  # Close the new tab if no results
-            driver.switch_to.window(driver.window_handles[0])  # Switch back to the original tab
-            return None  # No results found, return None
+            driver.close()
+            driver.switch_to.window(driver.window_handles[0])
+            return None, "No results found"
+        
+        # Check for multiple results
+        if check_multiple_results(driver):
+            print("Multiple results found for this address.")
+            driver.close()
+            driver.switch_to.window(driver.window_handles[0])
+            return None, "Multiple Values"
     except Exception as e:
-        print(f"Error checking no results: {e}")
+        print(f"Error checking results: {e}")
 
-    return driver
+    return driver, "Success"  # Return both driver and status
 
 
 import csv
@@ -107,14 +148,15 @@ def process_csv_and_open_sites(driver, csv_file_path):
     with open(csv_file_path, mode='r', encoding='utf-8') as file:
         reader = csv.DictReader(file)
         fieldnames = reader.fieldnames
-
-        # Ensure required columns exist
+            
         required_fields = [
-            "Result", "Parcel ID", "Name", "Extracted Address", "Extra Data", "data", "land use code",
-            "Sale Date", "Sale Amount", "Instrument #", "Book/Page", "Seller(s)", "Buyer(s)", "Deed Code","image_url","share_link"
+            "Result", "Parcel ID", "Name","Property_Use_Code", "Latest_TaxYear","Assessed_Value", "Extracted Address", "Extra Data", "Total_Land_Area", "land use code",
+            "Sale Date", "Beds", "Baths", "Living Area", "Gross Area", "Year Built",
+            "Zoning", "Sale Amount", "Instrument #", "Book/Page", "Seller(s)", "Buyer(s)", "Deed Code",
+            "image_url", "share_link"
         ]
 
-        # required_fields = ["Result", "Parcel ID", "Name", "Extracted Address", "Extra Data", "data", "land use code"]
+        # Ensure required columns exist
         for field in required_fields:
             if field not in fieldnames:
                 fieldnames.append(field)
@@ -122,96 +164,154 @@ def process_csv_and_open_sites(driver, csv_file_path):
         rows = list(reader)  # Read all rows at once
 
     for index, row in enumerate(rows):
-        case_number = row["Case Number"]
-        #address_cell = row["defendant_address"]
-        address_cell = row["Street"]
+        # Initialize a new browser for each row
+        if driver is not None:
+            try:
+                driver.quit()
+                print("Closed previous browser instance")
+            except Exception as e:
+                print(f"Error closing browser: {e}")
+        
+        print("Initializing new browser instance...")
+        driver = setup_driver_with_proxies(proxy=None)
+            
+        case_number = row.get("Case Number", f"Row {index+1}")
+        address_cell = row.get("Street", "")
 
-        if not address_cell:
+        # Check if address is empty or None
+        if not address_cell or address_cell.strip() == "":
             print(f"Skipping row {index + 1}: Missing address")
             row["Result"] = "Missing address"
+            
+            # Write the updated row back to CSV immediately
+            with open(csv_file_path, mode='w', newline='', encoding='utf-8') as file:
+                writer = csv.DictWriter(file, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
+            
+            # Close browser before continuing to next row
+            if driver is not None:
+                driver.quit()
+                print("Closed browser instance after missing address")
             continue
 
-        # Split the address at the first comma and take the first part
-        #first_address = address_cell.split(",")[0].strip()
+        # Process the address
         first_address = address_cell
         print(f"Processing Case {case_number}, Address: {first_address}")
-        time.sleep(3)
+        time.sleep(1)
 
         # Open the second site in a new tab
-        driver = enter_property_address_in_new_tab(driver, first_address)
-        time.sleep(3)
+        driver_result = enter_property_address_in_new_tab(driver, first_address)
+        time.sleep(4)
+        
+        # Check if we got a tuple (driver, status) or just driver
+        if isinstance(driver_result, tuple):
+            driver, result_status = driver_result
+        else:
+            driver = driver_result
+            result_status = "No results found" if driver is None else "Success"
+        
         if driver is None:
-            print(f"No results found for {first_address}. Reinitializing driver...")
+            print(f"{result_status} for {first_address}. Moving to next address...")
             
-            # Reinitialize WebDriver
-            ua = UserAgent()
-            user_agent = ua.random
-            options = uc.ChromeOptions()
-            options.add_argument("--incognito")
-            # options.add_argument("--headless")
-            options.add_argument(f'--user-agent={user_agent}')
-            options.add_argument("--disable-popup-blocking")
-            driver = uc.Chrome(version_main=134, options=options)
-
-            row["Result"] = "No results found"
-            continue
+            # Update the row with the result status and continue to the next row
+            row["Result"] = result_status
+            
+            # Write the updated row back to CSV immediately
+            with open(csv_file_path, mode='w', newline='', encoding='utf-8') as file:
+                writer = csv.DictWriter(file, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
+                
+            print(f"Updated CSV for {first_address} with '{result_status}'")
+            continue  # Skip to the next row in the loop
 
         print("Address found, extracting data...")
-
-        # Extract data
-        parcel_id, name, extracted_address, _, _, _ = extract_data(driver)
-        time.sleep(3)
-        data, land = move_to_section_and_get_data(driver)
-        time.sleep(3)
-        result = move_to_saleSection_and_get_data(driver)
-        time.sleep(3)
-        img_url = get_image_url(driver)
-        time.sleep(3)
-        share_link = click_and_get_popup_text(driver)
-        time.sleep(3)
-        # Initialize sale-related variables with default values
-        sale_date = sale_amt = instrument = book_page = seller = buyer = deed_code = None
-
         
-        if result:
-            print(result)
-            sale_date, sale_amt, instrument, book_page, seller, buyer, deed_code = result
-            print("Sale Date:", sale_date)
-            print("Sale Amount:", sale_amt)
-            print("Instrument #:", instrument)
-            print("Book/Page:", book_page)
-            print("Seller(s):", seller)
-            print("Buyer(s):", buyer)
-            print("Deed Code:", deed_code)
-        else:
-            print("No data extracted.")
+        # Set result status to Success for successful searches
+        row["Result"] = result_status
+        
+        try:
+            # Extract data
+            parcel_id, name, use_code, extracted_address, _, Latest_TaxYear, Assessed_Value = extract_data(driver)
+            time.sleep(2)
+            data, land, zoning, additional_data = move_to_property_section_and_get_data(driver)
+            time.sleep(2)
+            result = move_to_saleSection_and_get_data(driver)
+            time.sleep(2)
+            img_url = get_image_url(driver)
+            time.sleep(2)
+            share_link = click_and_get_popup_text(driver)
+            time.sleep(2)
+            # Initialize sale-related variables with default values
+            sale_date = sale_amt = instrument = book_page = seller = buyer = deed_code = None
+            
+            print('we are running')
+            year_built = additional_data.get("Actual Year Built", "N/A")
+            beds = additional_data.get("Beds", "N/A")
+            baths = additional_data.get("Baths", "N/A")
+            Gross_Area = additional_data.get("Gross Area", "N/A")
+            Living_Area = additional_data.get("Living Area", "N/A")
+            
+            print(f'the year built is {year_built} and beds is {beds} and the baths is {baths} and the gross area is {Gross_Area} and the living area is {Living_Area}')
 
-        print("Extracted parcel ID:", parcel_id)
-        print("Extracted name:", name)
-        print("Extracted data:", data)
-        print("Extracted land:", land)
+            
+            if result:
+                print(result)
+                sale_date, sale_amt, instrument, book_page, seller, buyer, deed_code = result
+                print("Sale Date:", sale_date)
+                print("Sale Amount:", sale_amt)
+                print("Instrument #:", instrument)
+                print("Book/Page:", book_page)
+                print("Seller(s):", seller)
+                print("Buyer(s):", buyer)
+                print("Deed Code:", deed_code)
+            else:
+                print("No data extracted.")
 
-        # Update row with extracted data
-        row["Parcel ID"] = parcel_id
-        row["Name"] = name
-        row["Extracted Address"] = extracted_address
-        row["data"] = data
-        row["land use code"] = land
-        row["land use code"] = land
-        row["Sale Date"] = sale_date
-        row["Sale Amount"] = sale_amt
-        row["Instrument #"] = instrument
-        row["Book/Page"] = book_page
-        row["Seller(s)"] = seller
-        row["Buyer(s)"] = buyer
-        row["Deed Code"] = deed_code
-        row["image_url"] = img_url
-        row["share_link"] = share_link
+            print("Extracted parcel ID:", parcel_id)
+            print("Extracted name:", name)
+            print("Extracted data:", data)
+            print("Extracted use_code:", use_code)
 
+            # Update row with extracted data
+            row["Parcel ID"] = parcel_id
+            row["Name"] = name
+            row["Property_Use_Code"] = use_code
+            row["Extracted Address"] = extracted_address
+            row["Latest_TaxYear"] = Latest_TaxYear
+            row["Assessed_Value"] = Assessed_Value
+            
+            row["Total_Land_Area"] = data
+            row["land use code"] = land
+            row["Zoning"] = zoning
+            
+            
+            row["Year Built"] = year_built
+            row["Beds"] = beds
+            row["Baths"] = baths
+            row["Gross Area"] = Gross_Area
+            row["Living Area"] = Living_Area
+
+            row["Sale Date"] = sale_date
+            row["Sale Amount"] = sale_amt
+            row["Instrument #"] = instrument
+            row["Book/Page"] = book_page
+            row["Seller(s)"] = seller
+            row["Buyer(s)"] = buyer
+            row["Deed Code"] = deed_code
+            row["image_url"] = img_url
+            row["share_link"] = share_link
+        except Exception as e:
+            print(f"Error extracting data: {e}")
+            row["Result"] = "Search Manually."
 
         # Close the new tab and switch back
-        driver.close()
-        driver.switch_to.window(driver.window_handles[0])
+        try:
+            driver.close()
+            driver.switch_to.window(driver.window_handles[0])
+        except Exception as e:
+            print(f"Error closing tab: {e}")
 
         # Write all updated data back to CSV at once
         with open(csv_file_path, mode='w', newline='', encoding='utf-8') as file:
@@ -219,128 +319,21 @@ def process_csv_and_open_sites(driver, csv_file_path):
             writer.writeheader()
             writer.writerows(rows)
         print('Csv updated')
+        
+        # Close the browser after processing each row
+        if driver is not None:
+            try:
+                driver.quit()
+                print("Closed browser instance after processing row")
+            except Exception as e:
+                print(f"Error closing browser: {e}")
     
-
-    # Close the WebDriver after processing all rows
-    driver.quit()
-
-# def process_csv_and_open_sites(driver, csv_file_path):
-#     """Reads the CSV, processes each entry, and writes extracted data back to the same CSV."""
-#     rows = []  # List to hold the updated rows
-
-#     with open(csv_file_path, mode='r', encoding='utf-8') as file:
-#         reader = csv.DictReader(file)  # Use DictReader to read rows as dictionaries
-#         print(f'the lenght of the reader is {reader}')
-#         fieldnames = reader.fieldnames  # Get the existing field names from the CSV
-
-#         if "Result" not in fieldnames:
-#             fieldnames.append("Result")  # Ensure "Result" column exists
-#         if "Parcel ID" not in fieldnames:
-#             fieldnames.append("Parcel ID")
-#         if "Name" not in fieldnames:
-#             fieldnames.append("Name")
-#         if "Extracted Address" not in fieldnames:
-#             fieldnames.append("Extracted Address")
-#         if "Extra Data" not in fieldnames:
-#             fieldnames.append("Extra Data")
-#         if "data" not in fieldnames:
-#             fieldnames.append("data")
-#         if "land use code" not in fieldnames:
-#             fieldnames.append("land use code")
-
-#         for row in reader:
-#             case_number = row["Case Number"]
-#             description = row["Description"]
-#             address_cell = row["Addresses"]
-#             print(address_cell)
-            
-#             if address_cell is not None:
-#                 address = address_cell.strip("[]").replace("'", "").replace('"', '').strip()
-
-#                 # Split the address at the first comma and take the first part
-#                 first_address = address.split(",")[0].strip()
-
-#                 # Ensure no extra whitespace is left
-#                 first_address = first_address.strip()
-
-#                 print(f'The first address is: {first_address}')
-#             else:
-#                 continue
-                
-
-
-#             if not first_address:
-#                 print(f"Skipping row with missing address for case {case_number}.")
-#                 row["Result"] = "Missing address"
-#                 rows.append(row)
-#                 continue
-
-#             print(f"Processing Case: {case_number}, Address: {address}")
-#             time.sleep(4)
-
-#             # Open the second site in a new tab
-#             driver = enter_property_address_in_new_tab(driver, first_address)
-#             if driver is None:  # If no results were found, skip further processing for this row
-#                 ua = UserAgent()
-#                 user_agent = ua.random
-#                 options = uc.ChromeOptions()
-#                 options.add_argument("--incognito")
-#                 options.add_argument("--headless")  # Run in headless mode
-#                 options.add_argument(f'--user-agent={user_agent}')
-#                 options.add_argument("--disable-popup-blocking")
-#                 driver = uc.Chrome(version_main=132,options=options)  # 
-#                 row["Result"] = "No results found"
-#                 rows.append(row)  # Append the modified dictionary
-#                 # Write to CSV immediately after processing this row
-#                 with open(csv_file_path, mode='w', newline='', encoding='utf-8') as file:
-#                     writer = csv.DictWriter(file, fieldnames=fieldnames)
-#                     writer.writeheader()  # Ensure only one header row is written
-#                     writer.writerows(rows)  # Write all rows with updated data
-#                 continue
-
-#             print('Address found, continuing with extraction.')
-
-#             # Extract and print data
-#             parcel_id, name, address, element_data, cell_1, cell_5 = extract_data(driver)
-#             data , land = move_to_section_and_get_data(driver)
-
-#             print("Extracted parcel ID:", parcel_id)
-#             print("Extracted name:", name)
-#             print("Complete Address (without first span):", address)
-#             print("Extracted data:", data)
-#             print("Extracted land:", land)
-
-#             # Store extracted data in the row
-#             row["Parcel ID"] = parcel_id
-#             row["Name"] = name
-#             row["Extracted Address"] = address
-#             row["data"] = data
-#             row["land use code"] = land
-
-#             rows.append(row)
-            
-#             with open(csv_file_path, mode='a', newline='', encoding='utf-8') as file:
-#                 writer = csv.DictWriter(file, fieldnames=fieldnames)
-#                 if file.tell() == 0:  # Write the header only if the file is empty
-#                     writer.writeheader()
-#                 writer.writerow(row)  # Write only the current row
-
-
-#             # Write to CSV immediately after processing this row
-#             # with open(csv_file_path, mode='w', newline='', encoding='utf-8') as file:
-#             #     writer = csv.DictWriter(file, fieldnames=fieldnames)
-#             #     writer.writeheader()  # Ensure only one header row is written
-#             #     writer.writerows(rows)  # Write all rows with updated data
-
-#             # Close the new tab after processing
-#             driver.close()
-#             driver.switch_to.window(driver.window_handles[0])  # Switch back to the original tab
-
-#     # Close the driver after processing all rows
-#     driver.quit()
-
-
-
+    # Ensure driver is closed at the end
+    if driver is not None:
+        try:
+            driver.quit()
+        except:
+            pass
 
 
 def extract_data(driver):
@@ -349,7 +342,7 @@ def extract_data(driver):
         parcel_id = wait_for_element(driver, '/html/body/app-root/body/div/div/div/parcel-search-component/div/div/div/div/div/div[4]/parcel-card-container-component/div/div/ul/li/a/b').text
     except Exception as e:
         print("Parcel ID not found:", e)
-        return None, None, None, None, None, None  # Return early if critical element is not found
+        return None, None, None, None, None, None, None  # Return 7 values with None
     time.sleep(3)
     try:
         name = wait_for_element(driver, '/html/body/app-root/body/div/div/div/parcel-search-component/div/div/div/div/div/div[4]/parcel-card-container-component/div/div/div/div/parcel-card-component/div[3]/div[1]/div[1]/div[2]/div[1]/div/span[2]').text
@@ -358,8 +351,14 @@ def extract_data(driver):
         name = None  # Set to None if not found
     time.sleep(3)
     try:
+        use_code = wait_for_element(driver, '/html/body/app-root/body/div/div/div/parcel-search-component/div/div/div/div/div/div[4]/parcel-card-container-component/div/div/div/div/parcel-card-component/div[3]/div[1]/div[1]/div[2]/div[3]/div/span[2]').text
+    except Exception as e:
+        print("use_code not found:", e)
+        use_code = None  # Set to None if not found
+    time.sleep(3)
+    
+    try:
         # Wait for address to load and extract it
-
         address_div = wait_for_element(driver, '//*[@id="ngb-nav-5-panel"]/parcel-card-component/div[3]/div[1]/div[1]/div[3]/div[1]/div[1]')
         span_elements = address_div.find_elements(By.TAG_NAME, 'span')
         address = " ".join([span.text for span in span_elements[1:]])  # Skip the first span and join the rest
@@ -376,24 +375,38 @@ def extract_data(driver):
     time.sleep(3)
     try:
         # Extract table data
-        table = wait_for_element(driver, '//*[@id="accordionControl"]/div[3]/div[1]/table')
-        first_row = table.find_element(By.XPATH, './/tbody/tr[2]')
+        table = wait_for_element(driver, '//*[@id="accordionControl"]/div[2]/div[1]/table')
+        time.sleep(2)
         
-        # Extract specific cells (Example: 1st and 5th cell)
-        cell_1 = first_row.find_element(By.XPATH, './td[1]').text  # 1st cell
-        cell_5 = first_row.find_element(By.XPATH, './td[5]').text  # 5th cell
-        print("Extracted Table Data:", cell_1, cell_5)
+        # Fix: Check if table exists and has content properly
+        if table is None or not table.is_displayed():
+            print("First table not found or not displayed, trying alternative table...")
+            table = wait_for_element(driver, '//*[@id="accordionControl"]/div[3]/div[1]/table')
+            
+        if table is None:
+            print("No table found at all")
+            cell_1 = cell_5 = None
+        else:
+            first_row = table.find_element(By.XPATH, './/tbody/tr[2]')
+            
+            # Extract specific cells (Example: 1st and 5th cell)
+            cell_1 = first_row.find_element(By.XPATH, './td[1]').text  # 1st cell
+            cell_5 = first_row.find_element(By.XPATH, './td[7]').text  # 7th cell
+            print("Extracted Table Data:", cell_1, cell_5)
+            
     except Exception as e:
         print("Table or specific cell data not found:", e)
         cell_1 = cell_5 = None  # Set to None if not found
+        
+    print(f"Parcel ID: {parcel_id}, Name: {name}, Address: {address}, Element Data: {element_data}, Cell 1: {cell_1}, Cell 5: {cell_5}")
 
-    return parcel_id, name, address, element_data, cell_1, cell_5
+    # Return 7 values to match the unpacking in process_csv_and_open_sites
+    return parcel_id, name, use_code, address, element_data, cell_1, cell_5
 
 
-
-
-def move_to_section_and_get_data(driver):
-    print('next')
+#new function to find the data
+def move_to_property_section_and_get_data(driver):
+    print('Navigating to the Property section...')
 
     section_link_xpath = '//*[@id="ngb-nav-6"]'
     
@@ -403,40 +416,71 @@ def move_to_section_and_get_data(driver):
         section_link.click()
     except TimeoutException:
         print("Timeout: Section link not found.")
-        return None, None  # or handle differently if you need to skip
+        return None, None, None  # Adjust return values as needed
     time.sleep(3)
-    # Wait for the section data to be visible
+
+    # Extract previous data points
     section_data_xpath = '//*[@id="ngb-nav-6-panel"]/parcel-features-card/div/div[2]/div[2]/div[1]/span[3]'
+    land_use_xpath = '//td[@data-title="Land Use Code"]'
+    zoning_xpath = '//td[@data-title="Zoning"]'
+
+    # //*[@id="no-more-tables"]/table/tbody/tr/td[2]
+    
     try:
         section_data_element = wait_for_element(driver, section_data_xpath)
-        section_data = section_data_element.text
+        section_data = section_data_element.text if section_data_element else None
     except TimeoutException:
         print("Timeout: Section data not found.")
-        return None, None  # or return default value
-    time.sleep(3)
-    # Extract data from the table
-    land_use_xpath = '//td[@data-title="Land Use Code"]'
+        section_data = "N/A"
+
     try:
         land_use_element = wait_for_element(driver, land_use_xpath)
-        land_use_text = land_use_element.text
+        land_use_text = land_use_element.text if land_use_element else None
+        zoning_element = wait_for_element(driver, zoning_xpath)
+        zoning_text = zoning_element.text if zoning_element else None
     except TimeoutException:
         print("Timeout: Land use code not found.")
-        land_use_text = "N/A"  # Handle as needed
+        land_use_text = "N/A"
+        zoning_text = "N/A"
 
-    # Optional: Extract more data from the table
-    # table_xpath = '//*[@id="no-more-tables"]/table'
-    # You can uncomment this if you want to add table extraction later
-    # try:
-    #     table = wait_for_element(driver, table_xpath)
-    #     # Process the table if needed
-    # except TimeoutException:
-    #     print("Timeout: Table not found.")
+    # Extract data from the deeply nested divs
+    print('data finding')
+    additional_info_xpath = '//*[@id="ngb-nav-6-panel"]/parcel-features-card/div/div[6]/div/div[2]/div/div'
+    
+    try:
+        additional_info_div = wait_for_element(driver, additional_info_xpath)
+        sub_divs = additional_info_div.find_elements(By.XPATH, './div') if additional_info_div else None  # Get all sub-divs inside
+        
+        additional_data_dict = {}
+        data_list = []  # Temporary list to store extracted text
+
+        if sub_divs: 
+            for div in sub_divs:
+                # Get inner nested divs
+                inner_divs = div.find_elements(By.XPATH, './div')
+                for inner_div in inner_divs:
+                    text = inner_div.text.strip()
+                    if text:
+                        data_list.append(text)
+
+            # Convert list to dictionary (assuming key-value pairs)
+            for i in range(0, len(data_list) - 1, 2):  
+                key = data_list[i].strip().replace(":", "")  # Remove colons for consistency
+                value = data_list[i + 1].strip()
+                additional_data_dict[key] = value
+
+    except TimeoutException:
+        print("Timeout: Additional info section not found.")
+        additional_data_dict = {"N/A": "N/A"}
+
+    # ✅ Now `additional_data_dict` contains the extracted key-value pairs.
 
     # Print extracted data
     print("Extracted Section Data:", section_data)
-    print("Extracted Table Data:", land_use_text)
+    print("Extracted Land Use Data:", land_use_text)
+    print("Extracted Additional Data:", additional_data_dict)
 
-    return section_data, land_use_text
+    return section_data, land_use_text,zoning_text, additional_data_dict  # Return all extracted values
 
 
 
@@ -449,8 +493,8 @@ def move_to_saleSection_and_get_data(driver):
     # Click on the next section
     try:
         next_section_link = wait_for_element(driver, next_section_xpath)
-        next_section_link.click()
-        time.sleep(8)
+        next_section_link.click() if next_section_link else None
+        time.sleep(9) # 9 seconds is very important time for the table to load.
     except TimeoutException:
         print("Timeout: Next section link not found.")
         return None  # Return None if section can't be accessed
@@ -463,6 +507,7 @@ def move_to_saleSection_and_get_data(driver):
     except TimeoutException:
         print("Timeout: Table not found in the new section.")
         return None
+
 
     # Extract the first row (excluding the header)
     try:
@@ -539,6 +584,115 @@ def click_and_get_popup_text(driver):
         print("Timeout: Element or pop-up not found.")
         return None
     
+# Add these imports
+import random
+
+# Add this function to modify your existing setup_driver function
+def setup_driver_with_stealth():
+    """
+    Set up a ChromeDriver instance with enhanced stealth features.
+    Returns:
+        Configured WebDriver instance.
+    """
+    ua = UserAgent()
+    user_agent = ua.random
+
+    options = uc.ChromeOptions()
+    options.add_argument("--incognito")
+    options.add_argument(f'--user-agent={user_agent}')
+    options.add_argument("--disable-popup-blocking")
+    
+    # Additional stealth settings - compatible with undetected_chromedriver
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    
+    # Try to use undetected_chromedriver
+    try:
+        driver = uc.Chrome(options=options)
+        print("Successfully initialized stealth Chrome driver")
+    except Exception as e:
+        print(f"Error initializing stealth Chrome: {e}")
+        
+        # Try alternative approach with standard Chrome
+        try:
+            print("Attempting to use standard Chrome with stealth settings...")
+            chrome_options = webdriver.ChromeOptions()
+            chrome_options.add_argument("--incognito")
+            chrome_options.add_argument(f'--user-agent={user_agent}')
+            chrome_options.add_argument("--disable-popup-blocking")
+            chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            chrome_options.add_experimental_option("useAutomationExtension", False)
+            
+            service = Service(ChromeDriverManager().install())
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+            print("Successfully initialized standard Chrome with stealth settings")
+        except Exception as e2:
+            print(f"Error initializing standard Chrome: {e2}")
+            raise Exception("Could not initialize WebDriver")
+    
+    # Mask WebDriver fingerprints
+    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+        "source": """
+        // Override the 'webdriver' property
+        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+        
+        // Override the plugins
+        Object.defineProperty(navigator, 'plugins', { 
+            get: () => {
+                return [
+                    {
+                        0: {type: "application/pdf"},
+                        description: "Portable Document Format",
+                        filename: "internal-pdf-viewer",
+                        length: 1,
+                        name: "Chrome PDF Plugin"
+                    },
+                    {
+                        0: {type: "application/pdf"},
+                        description: "Portable Document Format",
+                        filename: "internal-pdf-viewer",
+                        length: 1,
+                        name: "Chrome PDF Viewer"
+                    },
+                    {
+                        0: {type: "application/x-google-chrome-pdf"},
+                        description: "",
+                        filename: "mhjfbmdgcfjbbpaeojofohoefgiehjai",
+                        length: 1,
+                        name: "Chrome PDF Viewer"
+                    }
+                ];
+            }
+        });
+        
+        // Override the languages
+        Object.defineProperty(navigator, 'languages', { 
+            get: () => ['en-US', 'en'] 
+        });
+        
+        // Override the platform
+        Object.defineProperty(navigator, 'platform', { 
+            get: () => 'Win32' 
+        });
+        
+        // Override the hardwareConcurrency
+        Object.defineProperty(navigator, 'hardwareConcurrency', { 
+            get: () => 8 
+        });
+        """
+    })
+
+    return driver
+
+
+
+
+
+
+
+
+
+   
 def setup_driver_with_proxies(proxy=None):
     """
     Set up an undetected ChromeDriver instance with optional proxy support.
@@ -552,32 +706,56 @@ def setup_driver_with_proxies(proxy=None):
 
     options = uc.ChromeOptions()
     options.add_argument("--incognito")
-    # options.add_argument("--headless")
-    # options.add_argument("--headless")  # Run in headless mode
     options.add_argument(f'--user-agent={user_agent}')
     options.add_argument("--disable-popup-blocking")
+    
+    # Add performance-enhancing options
+    options.add_argument("--disable-extensions")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-software-rasterizer")
+    options.add_argument("--ignore-certificate-errors")
+    options.add_argument("--dns-prefetch-disable")
+    
+    # Reduce memory usage
+    options.add_argument("--disable-features=TranslateUI")
+    options.add_argument("--disable-translate")
+    options.add_argument("--disable-sync")
+    
+    # Disable unnecessary services
+    options.add_argument("--disable-background-networking")
+    options.add_argument("--disable-default-apps")
+    options.add_argument("--disable-notifications")
 
     if proxy:
         options.add_argument(f'--proxy-server={proxy}')
     
+    print("Initializing browser with optimized settings...")
     # Use undetected_chromedriver to automatically manage the ChromeDriver path
-    driver = uc.Chrome(version_main=134,options=options)  # This will use the correct version of ChromeDriver automatically
+    driver = uc.Chrome(version_main=134, options=options)  # This will use the correct version of ChromeDriver automatically
     
     # Mask WebDriver fingerprints
-    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
-        "source": """
-        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-        Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
-        Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-        """
-    })
+    # driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+    #     "source": """
+    #     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+    #     Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
+    #     Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+    #     """
+    # })
 
     return driver
 
 proxy = None  
 driver = setup_driver_with_proxies(proxy)
 
+#driver = setup_driver_with_stealth()
+
 try:
-    process_csv_and_open_sites(driver,'data.csv')   # Your main code here
+    process_csv_and_open_sites(driver, 'data.csv')
+    print("Successfully Completed Second Site. Parse Extracted Address")
+    print('------------Address Split:---------- ')
+    address_split.process_secondsite_csv()
+
 except Exception as e:
     print(f"An error occurred: {e}")
