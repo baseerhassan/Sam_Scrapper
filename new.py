@@ -201,7 +201,8 @@ def process_row_with_recovery(row, driver, table_data):
                     # Extract defendant names with retry
                     r +=1
                     print(f'still run {r}')
-                    table_xpath = '/html/body/div[2]/section/main/div[1]/div[2]/div[1]/div[2]/div/div[2]/div/div/table'
+                    #table_xpath = '/html/body/div[2]/section/main/div[1]/div[2]/div[1]/div[2]/div/div[2]/div/div/table'
+                    table_xpath = '/html/body/div[3]/div[2]/section/main/div/div[2]/div[1]/div[2]/div/div[2]/div/div/table'
                     data = retry_operation(
                         lambda: extract_defendant_names(table_xpath, driver),
                         max_retries=3,
@@ -225,7 +226,9 @@ def process_row_with_recovery(row, driver, table_data):
                     logging.info(f"Defendant names: {data}")
 
                     # Extract and process PDFs with retry
-                    table2_xpath = '/html/body/div[2]/section/main/div[1]/div[2]/div[1]/div[4]/div/div[2]/div/div[2]/div[1]/div/table'
+                    #table2_xpath = '/html/body/div[2]/section/main/div[1]/div[2]/div[1]/div[4]/div/div[2]/div/div[2]/div[1]/div/table'
+                    table2_xpath = '/html/body/div[3]/section/main/div[1]/div[2]/div[1]/div[4]/div/div[2]/div/div[2]/div[1]/div/table'
+                    
                     pdf = retry_operation(
                         lambda: extract_pdf_descriptions(table2_xpath, driver),
                         max_retries=3,

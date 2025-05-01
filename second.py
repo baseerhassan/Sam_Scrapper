@@ -234,7 +234,7 @@ def process_csv_and_open_sites(driver, csv_file_path):
         try:
             # Extract data
             parcel_id, name, use_code, extracted_address, _, Latest_TaxYear, Assessed_Value = extract_data(driver)
-            time.sleep(2)
+            time.sleep(6)
             data, land, zoning, additional_data = move_to_property_section_and_get_data(driver)
             time.sleep(2)
             result = move_to_saleSection_and_get_data(driver)
@@ -413,11 +413,12 @@ def move_to_property_section_and_get_data(driver):
     # Wait for the section link and click
     try:
         section_link = wait_for_element(driver, section_link_xpath)
+        time.sleep(5)
         section_link.click()
     except TimeoutException:
         print("Timeout: Section link not found.")
         return None, None, None  # Adjust return values as needed
-    time.sleep(3)
+    time.sleep(5)
 
     # Extract previous data points
     section_data_xpath = '//*[@id="ngb-nav-6-panel"]/parcel-features-card/div/div[2]/div[2]/div[1]/span[3]'
@@ -449,8 +450,9 @@ def move_to_property_section_and_get_data(driver):
     
     try:
         additional_info_div = wait_for_element(driver, additional_info_xpath)
+        time.sleep(5)
         sub_divs = additional_info_div.find_elements(By.XPATH, './div') if additional_info_div else None  # Get all sub-divs inside
-        
+        time.sleep(4)
         additional_data_dict = {}
         data_list = []  # Temporary list to store extracted text
 
@@ -458,6 +460,7 @@ def move_to_property_section_and_get_data(driver):
             for div in sub_divs:
                 # Get inner nested divs
                 inner_divs = div.find_elements(By.XPATH, './div')
+                time.sleep(1)
                 for inner_div in inner_divs:
                     text = inner_div.text.strip()
                     if text:
@@ -468,7 +471,7 @@ def move_to_property_section_and_get_data(driver):
                 key = data_list[i].strip().replace(":", "")  # Remove colons for consistency
                 value = data_list[i + 1].strip()
                 additional_data_dict[key] = value
-
+        time.sleep(5)
     except TimeoutException:
         print("Timeout: Additional info section not found.")
         additional_data_dict = {"N/A": "N/A"}
